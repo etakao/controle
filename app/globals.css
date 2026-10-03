@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #FAFAF8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    linear-gradient(90deg, rgba(26, 26, 26, 0.04) 1px, transparent 1px),
+    linear-gradient(rgba(26, 26, 26, 0.04) 1px, transparent 1px),
+    var(--paper);
+  background-size: 28px 28px;
+  font-family: Arial, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: #B8F0D4;
+  color: #1a1a1a;
+}
+
+.brutal-focus {
+  outline: 2px solid #1a1a1a;
+  outline-offset: 3px;
+}
+
+.money {
+  font-family: "DM Mono", SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0;
+}

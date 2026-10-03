@@ -1,0 +1,40 @@
+# Dependências
+node_modules/
+
+# Build do Next.js
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Variáveis de ambiente (nunca commitar secrets)
+.env
+.env.*
+!.env.example
+
+# Deploy (Vercel CLI) e Supabase CLI
+.vercel/
+supabase/.temp/
+supabase/.branches/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Configurações locais de agentes de IA
+.claude/settings.local.json
+
+# Misc
+coverage/
+*.pem
