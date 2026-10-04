@@ -4,7 +4,7 @@
 // - /_next/static: cache-first (arquivos com hash, imutáveis).
 // - Ícones, imagens e fontes: stale-while-revalidate.
 // - /api e payloads RSC: nunca interceptados (dados sempre frescos e privados).
-const VERSION = "v2";
+const VERSION = "v4";
 const STATIC_CACHE = `controle-static-${VERSION}`;
 const RUNTIME_CACHE = `controle-runtime-${VERSION}`;
 const OFFLINE_URL = "/offline";

@@ -11,11 +11,12 @@ export function InstallmentSelector({ value, onChange }: InstallmentSelectorProp
     <label className="grid gap-1 text-xs font-black uppercase">
       <span className="inline-flex items-center gap-2">
         <CreditCard size={14} />
-        Parcelar em X vezes
+        Quantidade de parcelas
       </span>
       <BrutalInput
         max={48}
-        min={1}
+        min={2}
+        required
         type="number"
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}

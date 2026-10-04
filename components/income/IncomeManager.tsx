@@ -13,6 +13,7 @@ import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PeriodFilter, PeriodState } from "@/components/ui/PeriodFilter";
 import { formatDateOnly, toLocalISODate } from "@/lib/dates";
+import { requestWithToast } from "@/lib/request";
 import { formatCurrency } from "@/lib/utils";
 
 type Member = { user: { id: string; name: string; email: string } };
@@ -92,7 +93,7 @@ export function IncomeManager({ groupId }: { groupId: string }) {
 
   async function createIncome(event: React.FormEvent) {
     event.preventDefault();
-    await fetch(`/api/groups/${groupId}/income`, {
+    const created = await requestWithToast(`/api/groups/${groupId}/income`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -104,7 +105,8 @@ export function IncomeManager({ groupId }: { groupId: string }) {
         recurringInterval: form.isRecurring && form.recurringFrequency === "CUSTOM" ? form.recurringInterval : null,
         recurringTotal: form.isRecurring ? form.recurringTotal : null
       })
-    });
+    }, { success: "Receita criada.", error: "Não foi possível criar a receita." });
+    if (!created) return;
     setForm(emptyForm());
     setIsFormOpen(false);
     await load();
@@ -123,7 +125,7 @@ export function IncomeManager({ groupId }: { groupId: string }) {
 
   async function submitEdit(mode = "single") {
     if (!editingIncome) return;
-    await fetch(`/api/groups/${groupId}/income/${editingIncome.id}?mode=${mode}`, {
+    const updated = await requestWithToast(`/api/groups/${groupId}/income/${editingIncome.id}?mode=${mode}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -133,7 +135,8 @@ export function IncomeManager({ groupId }: { groupId: string }) {
         description: editForm.description || null,
         date: mode === "single" ? editForm.date : undefined
       })
-    });
+    }, { success: "Receita atualizada.", error: "Não foi possível atualizar a receita." });
+    if (!updated) return;
     setEditingIncome(null);
     setEditModeModal(null);
     await load();
@@ -150,7 +153,12 @@ export function IncomeManager({ groupId }: { groupId: string }) {
   }
 
   async function removeIncome(income: Income, mode = "single") {
-    await fetch(`/api/groups/${groupId}/income/${income.id}?mode=${mode}`, { method: "DELETE" });
+    const removed = await requestWithToast(
+      `/api/groups/${groupId}/income/${income.id}?mode=${mode}`,
+      { method: "DELETE" },
+      { success: "Receita removida.", error: "Não foi possível remover a receita." }
+    );
+    if (!removed) return;
     setDeleteModal(null);
     await load();
   }

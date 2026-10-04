@@ -9,6 +9,7 @@ import { BrutalInput, BrutalTextarea } from "@/components/ui/BrutalInput";
 import { BrutalModal } from "@/components/ui/BrutalModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { notifyGroupsChanged } from "@/lib/groupEvents";
+import { requestWithToast } from "@/lib/request";
 import { formatDate } from "@/lib/utils";
 
 type Member = {
@@ -33,7 +34,6 @@ export function GroupInfo({ groupId }: { groupId: string }) {
   const [group, setGroup] = useState<{ name: string; description?: string | null } | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", description: "" });
-  const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function load() {
@@ -62,8 +62,12 @@ export function GroupInfo({ groupId }: { groupId: string }) {
   async function generateTimedLink() {
     setGenerating(true);
     try {
-      const res = await fetch(`/api/groups/${groupId}/invite-link`, { method: "POST" });
-      const data = await res.json();
+      const data = await requestWithToast<{ token: string; expiresAt: string }>(
+        `/api/groups/${groupId}/invite-link`,
+        { method: "POST" },
+        { success: "Link de convite gerado.", error: "Não foi possível gerar o link de convite." }
+      );
+      if (!data) return;
       setTimedLink({ url: `${window.location.origin}/invite/${data.token}`, expiresAt: data.expiresAt });
     } finally {
       setGenerating(false);
@@ -72,26 +76,23 @@ export function GroupInfo({ groupId }: { groupId: string }) {
 
   function openEdit() {
     setEditForm({ name: group?.name ?? "", description: group?.description ?? "" });
-    setEditError("");
     setIsEditOpen(true);
   }
 
   async function submitEdit(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
-    setEditError("");
     try {
-      const response = await fetch(`/api/groups/${groupId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editForm.name, description: editForm.description || null })
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setEditError(data.error ?? "Não foi possível salvar o grupo.");
-        return;
-      }
+      const data = await requestWithToast<{ group: { name: string; description: string | null } }>(
+        `/api/groups/${groupId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: editForm.name, description: editForm.description || null })
+        },
+        { success: "Grupo atualizado.", error: "Não foi possível salvar o grupo." }
+      );
+      if (!data) return;
 
       setGroup({ name: data.group.name, description: data.group.description });
       setIsEditOpen(false);
@@ -205,7 +206,6 @@ export function GroupInfo({ groupId }: { groupId: string }) {
               onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
             />
           </label>
-          {editError ? <p className="text-sm font-bold text-red-700">{editError}</p> : null}
           <div className="flex flex-wrap justify-end gap-2">
             <BrutalButton type="button" variant="ghost" onClick={() => setIsEditOpen(false)}>
               Cancelar

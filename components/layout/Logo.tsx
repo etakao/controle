@@ -1,7 +1,15 @@
-export function Logo() {
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+
+export function Logo({ size = 40, className }: { size?: number; className?: string }) {
   return (
-    <span className="font-display text-2xl font-black tracking-normal">
-      Control<span className="text-lavender [-webkit-text-stroke:1px_#1a1a1a]">ê</span>
-    </span>
+    <Image
+      alt="Controlê"
+      className={cn("inline-block", className)}
+      height={size}
+      priority
+      src="/icons/icon-192.png"
+      width={size}
+    />
   );
 }

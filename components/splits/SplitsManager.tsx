@@ -9,6 +9,7 @@ import { BrutalSelect } from "@/components/ui/BrutalSelect";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PeriodFilter, PeriodState } from "@/components/ui/PeriodFilter";
 import { formatDateOnly } from "@/lib/dates";
+import { requestWithToast } from "@/lib/request";
 import { formatCurrency } from "@/lib/utils";
 
 type Split = {
@@ -70,11 +71,14 @@ export function SplitsManager({ groupId }: { groupId: string }) {
       ...current,
       splits: current.splits.map((item) => item.id === split.id ? { ...item, status: next } : item)
     }));
-    await fetch(`/api/groups/${groupId}/splits/${split.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next })
-    });
+    await requestWithToast(
+      `/api/groups/${groupId}/splits/${split.id}`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }) },
+      {
+        success: next === "PAID" ? "Divisão marcada como paga." : "Divisão marcada como pendente.",
+        error: "Não foi possível atualizar a divisão."
+      }
+    );
     await load();
   }
 

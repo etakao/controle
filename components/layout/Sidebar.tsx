@@ -14,6 +14,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BrutalCard } from '@/components/ui/BrutalCard';
 import { GROUPS_CHANGED_EVENT } from '@/lib/groupEvents';
+import { requestWithToast } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useMobileSidebar } from './MobileSidebarContext';
 
@@ -50,7 +51,11 @@ export function Sidebar() {
   }, [selectedGroupId]);
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    const loggedOut = await requestWithToast('/api/auth/logout', { method: 'POST' }, {
+      success: 'Você saiu da conta.',
+      error: 'Não foi possível sair da conta.'
+    });
+    if (!loggedOut) return;
     router.push('/login');
   }
 

@@ -6,8 +6,10 @@ import { BrutalBadge } from "@/components/ui/BrutalBadge";
 import { BrutalButton } from "@/components/ui/BrutalButton";
 import { BrutalCard } from "@/components/ui/BrutalCard";
 import { BrutalInput } from "@/components/ui/BrutalInput";
+import { BrutalModal } from "@/components/ui/BrutalModal";
 import { BrutalSelect } from "@/components/ui/BrutalSelect";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { requestWithToast } from "@/lib/request";
 import { pastelPalette } from "@/lib/utils";
 
 type Category = {
@@ -23,6 +25,8 @@ export function CategoriesManager({ groupId }: { groupId: string }) {
   const [form, setForm] = useState({ name: "", type: "EXPENSE", color: pastelPalette[0] });
   const [editing, setEditing] = useState<{ id: string; name: string; color: string } | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function load() {
     const response = await fetch(`/api/groups/${groupId}/categories`);
@@ -37,28 +41,45 @@ export function CategoriesManager({ groupId }: { groupId: string }) {
 
   async function createCategory(event: React.FormEvent) {
     event.preventDefault();
-    await fetch(`/api/groups/${groupId}/categories`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
+    const created = await requestWithToast(
+      `/api/groups/${groupId}/categories`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) },
+      { success: "Categoria criada.", error: "Não foi possível criar a categoria." }
+    );
+    if (!created) return;
     setForm({ ...form, name: "" });
     setIsFormOpen(false);
     await load();
   }
 
   async function removeCategory(categoryId: string) {
-    await fetch(`/api/groups/${groupId}/categories?id=${categoryId}`, { method: "DELETE" });
-    await load();
+    setIsDeleting(true);
+    try {
+      const removed = await requestWithToast(
+        `/api/groups/${groupId}/categories?id=${categoryId}`,
+        { method: "DELETE" },
+        { success: "Categoria removida.", error: "Não foi possível remover a categoria." }
+      );
+      if (!removed) return;
+      setDeletingCategory(null);
+      await load();
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function saveEdit(categoryId: string) {
     if (!editing) return;
-    await fetch(`/api/groups/${groupId}/categories`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: categoryId, name: editing.name, color: editing.color })
-    });
+    const updated = await requestWithToast(
+      `/api/groups/${groupId}/categories`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: categoryId, name: editing.name, color: editing.color })
+      },
+      { success: "Categoria atualizada.", error: "Não foi possível atualizar a categoria." }
+    );
+    if (!updated) return;
     setEditing(null);
     await load();
   }
@@ -128,7 +149,7 @@ export function CategoriesManager({ groupId }: { groupId: string }) {
                     >
                       <Pencil size={16} />
                     </BrutalButton>
-                    <BrutalButton aria-label="Remover categoria" className="h-9 w-9 px-0" variant="danger" onClick={() => removeCategory(category.id)}>
+                    <BrutalButton aria-label="Remover categoria" className="h-9 w-9 px-0" variant="danger" onClick={() => setDeletingCategory(category)}>
                       <Trash2 size={16} />
                     </BrutalButton>
                   </>
@@ -192,6 +213,19 @@ export function CategoriesManager({ groupId }: { groupId: string }) {
           {renderList(expense)}
         </section>
       </div>
+
+      <BrutalModal open={Boolean(deletingCategory)} onClose={() => setDeletingCategory(null)} title="Remover categoria">
+        <p className="font-bold">
+          Tem certeza que deseja remover a categoria &quot;{deletingCategory?.name}&quot;? Esta ação não pode ser desfeita.
+        </p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <BrutalButton variant="ghost" onClick={() => setDeletingCategory(null)}>Cancelar</BrutalButton>
+          <BrutalButton disabled={isDeleting} variant="danger" onClick={() => deletingCategory && removeCategory(deletingCategory.id)}>
+            <Trash2 size={16} />
+            {isDeleting ? "Removendo..." : "Remover"}
+          </BrutalButton>
+        </div>
+      </BrutalModal>
     </div>
   );
 }

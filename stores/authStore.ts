@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type StoredUser = {
+export type StoredUser = {
   id: string;
   name: string;
   email: string;

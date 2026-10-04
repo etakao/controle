@@ -6,12 +6,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import { BrutalButton } from "@/components/ui/BrutalButton";
 import { BrutalCard } from "@/components/ui/BrutalCard";
 import { BrutalInput } from "@/components/ui/BrutalInput";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { requestWithToast } from "@/lib/request";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
-import { useAuthStore } from "@/stores/authStore";
+import { StoredUser, useAuthStore } from "@/stores/authStore";
 
 type InviteGroup = { id: string; name: string; description?: string | null };
 type Step = "loading" | "invalid" | "invite" | "login" | "register";
@@ -55,6 +58,7 @@ export function InviteFlow({ token }: { token: string }) {
       throw new Error(data.error ?? "Não foi possível aceitar o convite.");
     }
 
+    toast.success("Convite aceito.");
     router.push(`/groups/${data.groupId}`);
     router.refresh();
     return true;
@@ -62,12 +66,11 @@ export function InviteFlow({ token }: { token: string }) {
 
   async function acceptInvite() {
     setAccepting(true);
-    setError("");
     try {
       const joined = await joinGroup();
       if (!joined) setStep("login");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível aceitar o convite.");
+      toast.error(err instanceof Error ? err.message : "Não foi possível aceitar o convite.");
     } finally {
       setAccepting(false);
     }
@@ -98,7 +101,6 @@ export function InviteFlow({ token }: { token: string }) {
         <div className="mt-4 grid gap-4">
           <p className="text-lg font-black">Você foi convidado para participar de {group?.name}.</p>
           {group?.description ? <p className="font-bold">{group.description}</p> : null}
-          {error ? <p className="text-sm font-bold text-red-700">{error}</p> : null}
           <BrutalButton disabled={accepting} onClick={acceptInvite}>
             <Check size={16} />
             {accepting ? "Aceitando..." : "Aceitar convite"}
@@ -126,28 +128,22 @@ function InviteLoginForm({ groupName, onJoin, onSwitch }: InviteLoginFormProps) 
   const {
     register,
     handleSubmit,
-    setError,
     formState: { errors, isSubmitting }
   } = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
 
   async function onSubmit(values: LoginValues) {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values)
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      setError("root", { message: data.error ?? "Não foi possível entrar." });
-      return;
-    }
+    const data = await requestWithToast<{ user: StoredUser; token: string }>(
+      "/api/auth/login",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) },
+      { error: "Não foi possível entrar." }
+    );
+    if (!data) return;
 
     setAuth(data.user, data.token);
     try {
       await onJoin();
     } catch (err) {
-      setError("root", { message: err instanceof Error ? err.message : "Não foi possível aceitar o convite." });
+      toast.error(err instanceof Error ? err.message : "Não foi possível aceitar o convite.");
     }
   }
 
@@ -163,10 +159,9 @@ function InviteLoginForm({ groupName, onJoin, onSwitch }: InviteLoginFormProps) 
         </label>
         <label className="grid gap-1 text-xs font-black uppercase">
           Senha
-          <BrutalInput autoComplete="current-password" type="password" {...register("password")} />
+          <PasswordInput autoComplete="current-password" {...register("password")} />
           {errors.password ? <span className="text-sm normal-case text-red-700">{errors.password.message}</span> : null}
         </label>
-        {errors.root ? <p className="text-sm font-bold text-red-700">{errors.root.message}</p> : null}
         <BrutalButton disabled={isSubmitting} type="submit">
           <LogIn size={16} />
           {isSubmitting ? "Entrando..." : "Entrar e aceitar convite"}
@@ -194,22 +189,16 @@ function InviteRegisterForm({ groupName, token, onSwitch }: InviteRegisterFormPr
   const {
     register,
     handleSubmit,
-    setError,
     formState: { errors, isSubmitting }
   } = useForm<RegisterValues>({ resolver: zodResolver(registerSchema) });
 
   async function onSubmit(values: RegisterValues) {
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...values, inviteToken: token })
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      setError("root", { message: data.error ?? "Não foi possível criar sua conta." });
-      return;
-    }
+    const data = await requestWithToast<{ user: StoredUser; token: string; groupId: string }>(
+      "/api/auth/register",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...values, inviteToken: token }) },
+      { success: "Conta criada. Convite aceito.", error: "Não foi possível criar sua conta." }
+    );
+    if (!data) return;
 
     setAuth(data.user, data.token);
     router.push(`/groups/${data.groupId}`);
@@ -233,10 +222,9 @@ function InviteRegisterForm({ groupName, token, onSwitch }: InviteRegisterFormPr
         </label>
         <label className="grid gap-1 text-xs font-black uppercase">
           Senha
-          <BrutalInput autoComplete="new-password" type="password" {...register("password")} />
+          <PasswordInput autoComplete="new-password" {...register("password")} />
           {errors.password ? <span className="text-sm normal-case text-red-700">{errors.password.message}</span> : null}
         </label>
-        {errors.root ? <p className="text-sm font-bold text-red-700">{errors.root.message}</p> : null}
         <BrutalButton disabled={isSubmitting} type="submit">
           <UserPlus size={16} />
           {isSubmitting ? "Criando..." : "Criar conta e aceitar convite"}

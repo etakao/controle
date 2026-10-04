@@ -8,6 +8,7 @@ import { BrutalButton } from "@/components/ui/BrutalButton";
 import { BrutalCard } from "@/components/ui/BrutalCard";
 import { BrutalInput, BrutalTextarea } from "@/components/ui/BrutalInput";
 import { notifyGroupsChanged } from "@/lib/groupEvents";
+import { requestWithToast } from "@/lib/request";
 
 type CreatedGroup = {
   id: string;
@@ -20,24 +21,21 @@ export function NewGroupForm() {
   const [description, setDescription] = useState("");
   const [created, setCreated] = useState<CreatedGroup | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
-    setError("");
     try {
-      const response = await fetch("/api/groups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: description || null })
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error ?? "Não foi possível criar o grupo.");
-        return;
-      }
+      const data = await requestWithToast<{ group: CreatedGroup }>(
+        "/api/groups",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, description: description || null })
+        },
+        { success: "Grupo criado.", error: "Não foi possível criar o grupo." }
+      );
+      if (!data) return;
 
       setCreated(data.group);
       notifyGroupsChanged();
@@ -88,7 +86,6 @@ export function NewGroupForm() {
               Descrição
               <BrutalTextarea maxLength={240} value={description} onChange={(event) => setDescription(event.target.value)} />
             </label>
-            {error ? <p className="text-sm font-bold text-red-700">{error}</p> : null}
             <div className="flex justify-end">
               <BrutalButton disabled={loading} type="submit">
                 <Plus size={16} />

@@ -15,6 +15,7 @@ import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PeriodFilter, PeriodState } from "@/components/ui/PeriodFilter";
 import { formatDateOnly, toLocalISODate } from "@/lib/dates";
+import { requestWithToast } from "@/lib/request";
 import { formatCurrency } from "@/lib/utils";
 
 type Member = { user: { id: string; name: string; email: string } };
@@ -57,7 +58,8 @@ const emptyForm = () => ({
   categoryId: "",
   responsibleId: "",
   description: "",
-  installments: 1,
+  isInstallment: false,
+  installments: 2,
   isRecurring: false,
   recurringFrequency: "MONTHLY",
   recurringInterval: 2,
@@ -113,21 +115,22 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
 
   async function createExpense(event: React.FormEvent) {
     event.preventDefault();
-    await fetch(`/api/groups/${groupId}/expenses`, {
+    const created = await requestWithToast(`/api/groups/${groupId}/expenses`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
         amount: Number(form.amount),
         categoryId: form.categoryId || null,
-        installments: Number(form.installments),
+        installments: isInstallmentActive ? Number(form.installments) : 1,
         splits: splitEnabled ? splitUsers.map((e) => ({ userId: e.userId, amount: e.amount })) : [],
         isRecurring: form.isRecurring,
         recurringFrequency: form.isRecurring ? form.recurringFrequency : null,
         recurringInterval: form.isRecurring && form.recurringFrequency === "CUSTOM" ? form.recurringInterval : null,
         recurringTotal: form.isRecurring ? form.recurringTotal : null
       })
-    });
+    }, { success: "Despesa criada.", error: "Não foi possível criar a despesa." });
+    if (!created) return;
     setForm(emptyForm());
     setSplitUsers([]);
     setSplitEnabled(false);
@@ -149,7 +152,7 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
 
   async function submitEdit(mode = "single") {
     if (!editingExpense) return;
-    await fetch(`/api/groups/${groupId}/expenses/${editingExpense.id}?mode=${mode}`, {
+    const updated = await requestWithToast(`/api/groups/${groupId}/expenses/${editingExpense.id}?mode=${mode}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -160,7 +163,8 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
         date: mode === "single" ? editForm.date : undefined,
         paymentMethod: editForm.paymentMethod
       })
-    });
+    }, { success: "Despesa atualizada.", error: "Não foi possível atualizar a despesa." });
+    if (!updated) return;
     setEditingExpense(null);
     setEditModeModal(null);
     await load();
@@ -177,7 +181,12 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
   }
 
   async function removeExpense(expense: Expense, mode = "single") {
-    await fetch(`/api/groups/${groupId}/expenses/${expense.id}?mode=${mode}`, { method: "DELETE" });
+    const removed = await requestWithToast(
+      `/api/groups/${groupId}/expenses/${expense.id}?mode=${mode}`,
+      { method: "DELETE" },
+      { success: "Despesa removida.", error: "Não foi possível remover a despesa." }
+    );
+    if (!removed) return;
     setDeleteModal(null);
     await load();
   }
@@ -185,6 +194,10 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
   function isSeriesExpense(expense: Expense) {
     return (expense.installments > 1 && expense.installmentNum !== undefined) || Boolean(expense.isRecurring && expense.recurringRef);
   }
+
+  // Parcelamento só se aplica a cartão de crédito e não combina com despesa fixa.
+  const canInstall = form.paymentMethod === "CREDIT_CARD";
+  const isInstallmentActive = canInstall && form.isInstallment && !form.isRecurring;
 
   const expenseCategories = group?.categories.filter((c) => c.type === "EXPENSE") ?? [];
 
@@ -238,9 +251,6 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
               {group?.members.map((m) => <option key={m.user.id} value={m.user.id}>{m.user.name}</option>)}
             </BrutalSelect>
           </label>
-          {form.paymentMethod === "CREDIT_CARD" && !form.isRecurring ? (
-            <InstallmentSelector value={form.installments} onChange={(installments) => setForm({ ...form, installments })} />
-          ) : null}
           <label className="flex items-center gap-2 text-xs font-black uppercase">
             <BrutalInput className="h-5 min-h-0 w-5" type="checkbox" checked={splitEnabled} onChange={(e) => toggleSplit(e.target.checked)} />
             Dividir despesa
@@ -250,10 +260,24 @@ export function ExpenseManager({ groupId }: { groupId: string }) {
               checked={form.isRecurring}
               className="h-5 min-h-0 w-5"
               type="checkbox"
-              onChange={(e) => setForm({ ...form, isRecurring: e.target.checked })}
+              onChange={(e) => setForm({ ...form, isRecurring: e.target.checked, isInstallment: e.target.checked ? false : form.isInstallment })}
             />
             Despesa fixa
           </label>
+          {canInstall ? (
+            <label className="flex items-center gap-2 text-xs font-black uppercase">
+              <BrutalInput
+                checked={isInstallmentActive}
+                className="h-5 min-h-0 w-5"
+                type="checkbox"
+                onChange={(e) => setForm({ ...form, isInstallment: e.target.checked, isRecurring: e.target.checked ? false : form.isRecurring })}
+              />
+              Parcelado
+            </label>
+          ) : null}
+          {isInstallmentActive ? (
+            <InstallmentSelector value={form.installments} onChange={(installments) => setForm({ ...form, installments })} />
+          ) : null}
           {form.isRecurring ? (
             <div className="flex flex-wrap gap-3 md:col-span-3">
               <label className="grid gap-1 text-xs font-black uppercase">
